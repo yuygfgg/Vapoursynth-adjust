@@ -526,6 +526,7 @@ void process_chroma_uint8(const uint8_t* srcp_u, const uint8_t* srcp_v, uint8_t*
 
 static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* instanceData, void** frameData,
                                         VSFrameContext* frameCtx, VSCore* core, const VSAPI* vsapi) {
+    (void) frameData;
     TweakData* d = static_cast<TweakData*>(instanceData);
     
     if (activationReason == arInitial) {
@@ -726,12 +727,15 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
 }
 
 static void VS_CC tweakFree(void* instanceData, VSCore* core, const VSAPI* vsapi) {
+    (void) core;
     TweakData* d = static_cast<TweakData*>(instanceData);
     vsapi->freeNode(d->node);
     free(d);
 }
 
 static void VS_CC tweakCreate(const VSMap* in, VSMap* out, void* userData, VSCore* core, const VSAPI* vsapi) {
+    (void) userData;
+
     TweakData d;
     TweakData* data;
     int err;
