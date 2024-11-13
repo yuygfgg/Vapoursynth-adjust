@@ -2,7 +2,6 @@
 */.DS_Store
 
 .vscode/*
-.DS_Store
 build/*
 builddir/*
 .cache/*
