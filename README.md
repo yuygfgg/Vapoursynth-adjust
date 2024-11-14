@@ -1,35 +1,12 @@
-Port of https://github.com/dubhater/vapoursynth-adjust. Roughly same speed as akarin.Expr impl, both >1000 fps on 1080P YUV444 BlankClip.
+Port of http://avisynth.nl/index.php/Tweak. `interp` `dither` `realcalc` `dither_strength` are not currently supported.
 
 ## Usage
 
 ```python
-core.adjust.Tweak(clip=clip, [float hue = 0, float sat = 1, float bright = 0, float  cont = 1, bool coring = True])
+core.adjust.Tweak(clip=clip, [float hue = 0.0, float sat = 1.0, float bright = 0.0, float cont = 1.0, bool coring = True, float startHue = 0.0, float endHue = 360.0, float maxSat = 150.0, float minSat = 0.0])
 ```
-```
-Parameters:
 
-hue
-
-Adjust the hue. Positive values shift it towards red, while negative values shift it towards green.
-
-Range: -180.0 .. 180.0
-
-sat
-
-Adjust the saturation. Values above 1.0 increase it, while values below 1.0 decrease it. 0.0 removes all colour.
-
-Range: 0.0 .. 10.0
-
-bright
-
-Adjust the brightness. This value is directly added to each luma pixel.
-
-cont:
-
-Adjust the contrast. Values above 1.0 increase it, while values below 1.0 decrease it.
-
-Range: 0.0 .. 10.0
-```
+Also see http://avisynth.nl/index.php/Tweak and https://github.com/dubhater/vapoursynth-adjust.
 
 ## Compilation
 ```bash
