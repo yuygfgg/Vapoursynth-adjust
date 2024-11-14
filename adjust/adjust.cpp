@@ -10,12 +10,6 @@
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
-#define DEBUG   printf("x = %d ; y = %d ;u = %f ;v = %f\n", x, y, u, v);\
-                printf("currHue = %f\n", currHue);\
-                printf("currSat = %f\n", currSat);\
-                printf("Hue range check: %d\n", !isHueInRange(currHue, d->startHue, d->endHue));\
-                printf("Sat range check: %d\n", currSat < d->minSat || currSat > d->maxSat);\
-
 static inline float fast_atan2f(float y, float x) { // https://gist.github.com/velipso/fc5a58b7d9fc020ecf7f2f5fc907dfa5
 	static const float c1 = M_PI / 4.0;
 	static const float c2 = M_PI * 3.0 / 4.0;
@@ -62,6 +56,35 @@ static inline bool isHueInRange(float hue, float startHue, float endHue) {
     }
 }
 
+static inline float calculateSaturationFactor(float chroma_sat, float minSat, float maxSat, float sat, float interp) {
+    float min_chroma = minSat * (119.0f / 100.0f);
+    float max_chroma = maxSat * (119.0f / 100.0f);
+    
+    if (interp <= 0.0f) {
+        if (chroma_sat >= min_chroma && chroma_sat <= max_chroma)
+            return sat;
+        return 1.0f;
+    }
+
+    if (chroma_sat < min_chroma - interp || chroma_sat > max_chroma + interp)
+        return 1.0f;
+
+    if (chroma_sat >= min_chroma + interp && chroma_sat <= max_chroma - interp)
+        return sat;
+
+    if (chroma_sat < min_chroma + interp) {
+        float t = (chroma_sat - (min_chroma - interp)) / (2 * interp);
+        return 1.0f + (sat - 1.0f) * t;
+    }
+
+    if (chroma_sat > max_chroma - interp) {
+        float t = (max_chroma + interp - chroma_sat) / (2 * interp);
+        return sat + (1.0f - sat) * t;
+    }
+
+    return sat;
+}
+
 struct TweakData {
     VSNode* node;
     float hue;
@@ -73,6 +96,7 @@ struct TweakData {
     float endHue;
     float maxSat;
     float minSat;
+    float interp;
 };
 
 static void copyPlaneData_uint8(const uint8_t* src, uint8_t* dst, int width, int height,
@@ -608,8 +632,9 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
     
     // Check if we need to do range processing
     bool do_range_check = (d->startHue != 0.0f || d->endHue != 360.0f || 
-                            d->minSat != 0.0f || d->maxSat != 150.0f) && 
-                            process_chroma;
+                      d->minSat != 0.0f || d->maxSat != 150.0f ||
+                      d->interp != 0.0f) && 
+                      process_chroma;
 
     const VSFrame* planeSrc[3] = {nullptr, nullptr, nullptr};
     int planes[3] = {0, 1, 2};
@@ -674,6 +699,7 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                     const int stride_src_v = vsapi->getStride(src, 2);
                     const int stride_dst_u = vsapi->getStride(dst, 1);
                     const int stride_dst_v = vsapi->getStride(dst, 2);
+
                     for (int y = 0; y < chroma_height; y++) {
                         #pragma omp simd
                         for (int x = 0; x < chroma_width; x++) {
@@ -684,9 +710,18 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             
                             float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
                             if (currHue < 0) currHue += 360.0f;
+                            
                             float currSat = fast_sqrtf(u * u + v * v);
-                            if (!isHueInRange(currHue, d->startHue, d->endHue) || 
-                                currSat < d->minSat || currSat > d->maxSat) {
+                            if (isHueInRange(currHue, d->startHue, d->endHue)) {
+                                float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
+                                float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
+                                float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
+                                
+                                *(dstp_u + x) = static_cast<uint8_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
+                                                                        static_cast<float>(chroma_max)));
+                                *(dstp_v + x) = static_cast<uint8_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
+                                                                        static_cast<float>(chroma_max)));
+                            } else {
                                 *(dstp_u + x) = src_u;
                                 *(dstp_v + x) = src_v;
                             }
@@ -741,17 +776,23 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                         for (int x = 0; x < chroma_width; x++) {
                             const uint16_t src_u = *(srcp_u + x);
                             const uint16_t src_v = *(srcp_v + x);
-                            
                             float u = static_cast<float>(src_u - gray);
                             float v = static_cast<float>(src_v - gray);
                             
                             float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
                             if (currHue < 0) currHue += 360.0f;
                             
-                            float currSat = fast_sqrtf(u * u + v * v);
-                            
-                            if (!isHueInRange(currHue, d->startHue, d->endHue) || 
-                                currSat < d->minSat || currSat > d->maxSat) {
+                            float currSat = fast_sqrtf(u * u + v * v) * (1.0f / (1 << (bits - 8)));
+                            if (isHueInRange(currHue, d->startHue, d->endHue)) {
+                                float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
+                                float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
+                                float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
+                                
+                                *(dstp_u + x) = static_cast<uint16_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
+                                                                        static_cast<float>(chroma_max)));
+                                *(dstp_v + x) = static_cast<uint16_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
+                                                                        static_cast<float>(chroma_max)));
+                            } else {
                                 *(dstp_u + x) = src_u;
                                 *(dstp_v + x) = src_v;
                             }
@@ -806,17 +847,21 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                     for (int x = 0; x < chroma_width; x++) {
                         const float src_u = *(srcp_u + x);
                         const float src_v = *(srcp_v + x);
-                        
                         float u = src_u;
                         float v = src_v;
                         
                         float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
                         if (currHue < 0) currHue += 360.0f;
                         
-                        float currSat = fast_sqrtf(u * u + v * v);
-                        
-                        if (!isHueInRange(currHue, d->startHue, d->endHue) || 
-                            currSat < d->minSat || currSat > d->maxSat) {
+                        float currSat = fast_sqrtf(u * u + v * v) * 119.0f;
+                        if (isHueInRange(currHue, d->startHue, d->endHue)) {
+                            float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
+                            float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor;
+                            float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor;
+                            
+                            *(dstp_u + x) = CLAMP(new_u, -0.5, 0.5);
+                            *(dstp_v + x) = CLAMP(new_v, -0.5, 0.5);
+                        } else {
                             *(dstp_u + x) = src_u;
                             *(dstp_v + x) = src_v;
                         }
@@ -908,6 +953,17 @@ static void VS_CC tweakCreate(const VSMap* in, VSMap* out, void* userData, VSCor
     if (err)
         d.minSat = 0.0f;
 
+    err = 0;
+    d.interp = static_cast<float>(vsapi->mapGetFloat(in, "interp", 0, &err));
+    if (err)
+        d.interp = 16.0f;
+
+    if (d.interp < 0.0f || d.interp > 32.0f) {
+        vsapi->mapSetError(out, "Tweak: interp must be between 0 and 32");
+        vsapi->freeNode(d.node);
+        return;
+    }
+
     if (d.minSat >= d.maxSat) {
         vsapi->mapSetError(out, "Tweak: minSat must be less than maxSat");
         vsapi->freeNode(d.node);
@@ -936,16 +992,17 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin* plugin, const VSPLUGINAPI
     vspapi->configPlugin("com.yuygfgg.adjust", "adjust", "VapourSynth Tweak Filter", 
                         VS_MAKE_VERSION(1, 0), VAPOURSYNTH_API_VERSION, 0, plugin);
     vspapi->registerFunction("Tweak",
-                            "clip:vnode;"
-                            "hue:float:opt;"
-                            "sat:float:opt;"
-                            "bright:float:opt;"
-                            "cont:float:opt;"
-                            "coring:int:opt;"
-                            "startHue:float:opt;"
-                            "endHue:float:opt;"
-                            "maxSat:float:opt;"
-                            "minSat:float:opt;",
-                            "clip:vnode;",
-                            tweakCreate, nullptr, plugin);
+                        "clip:vnode;"
+                        "hue:float:opt;"
+                        "sat:float:opt;"
+                        "bright:float:opt;"
+                        "cont:float:opt;"
+                        "coring:int:opt;"
+                        "startHue:float:opt;"
+                        "endHue:float:opt;"
+                        "maxSat:float:opt;"
+                        "minSat:float:opt;"
+                        "interp:float:opt;",
+                        "clip:vnode;",
+                        tweakCreate, nullptr, plugin);
 }
