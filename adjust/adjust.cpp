@@ -19,7 +19,6 @@ struct TweakData {
     bool coring;
 };
 
-// 手动复制一个平面的数据
 static void copyPlaneData_uint8(const uint8_t* src, uint8_t* dst, int width, int height,
                             ptrdiff_t src_stride, ptrdiff_t dst_stride) {
     for (int y = 0; y < height; y++) {
@@ -540,7 +539,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
     const VSFrame* src = vsapi->getFrameFilter(n, d->node, frameCtx);
     const VSVideoFormat* fi = vsapi->getVideoFrameFormat(src);
     
-    // 如果参数都是默认值，直接返回源帧
     if (fi->colorFamily == cfGray) {
         if (d->bright == 0.0f && d->cont == 1.0f) {
             return src;
@@ -552,11 +550,9 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
     bool process_luma = (d->bright != 0.0f || d->cont != 1.0f);
     bool process_chroma = (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f));
 
-    // 准备平面源数组和平面索引数组
     const VSFrame* planeSrc[3] = {nullptr, nullptr, nullptr};
     int planes[3] = {0, 1, 2};
     
-    // 对于不需要处理的平面，设置源平面
     if (!process_luma)
         planeSrc[0] = src;
     if (!process_chroma && fi->colorFamily != cfGray) {
@@ -564,7 +560,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
         planeSrc[2] = src;
     }
 
-    // 创建新帧，复用不需要处理的平面
     VSFrame* dst = vsapi->newVideoFrame2(fi, vsapi->getFrameWidth(src, 0), 
                                         vsapi->getFrameHeight(src, 0), 
                                         planeSrc, planes, src, core);
@@ -582,7 +577,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
         const int luma_max = d->coring ? (235 << (bits - 8)) : (1 << bits) - 1;
         
         if (bits == 8) {
-            // 处理亮度平面
             if (process_luma) {
                 process_luma_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 0)),
                             reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 0)),
@@ -593,7 +587,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint8_t>(luma_max));
             }
 
-            // 处理色度平面
             if (fi->colorFamily != cfGray && process_chroma) {
                 const int chroma_width = vsapi->getFrameWidth(src, 1);
                 const int chroma_height = vsapi->getFrameHeight(src, 1);
@@ -611,7 +604,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint8_t>(gray));
             }
         } else {
-            // 处理亮度平面
             if (process_luma) {
                 process_luma_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 0)),
                             reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 0)),
@@ -622,7 +614,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint16_t>(luma_max));
             }
 
-            // 处理色度平面
             if (fi->colorFamily != cfGray && process_chroma) {
                 const int chroma_width = vsapi->getFrameWidth(src, 1);
                 const int chroma_height = vsapi->getFrameHeight(src, 1);
@@ -641,7 +632,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
             }
         }
     } else {
-        // 处理亮度平面
         if (process_luma) {
             process_luma_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 0)),
                         reinterpret_cast<float*>(vsapi->getWritePtr(dst, 0)),
@@ -651,7 +641,6 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                         d->cont, d->bright, 0.0f, 1.0f);
         }
 
-        // 处理色度平面
         if (fi->colorFamily != cfGray && process_chroma) {
             const int chroma_width = vsapi->getFrameWidth(src, 1);
             const int chroma_height = vsapi->getFrameHeight(src, 1);
