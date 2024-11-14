@@ -10,6 +10,58 @@
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
+#define DEBUG   printf("x = %d ; y = %d ;u = %f ;v = %f\n", x, y, u, v);\
+                printf("currHue = %f\n", currHue);\
+                printf("currSat = %f\n", currSat);\
+                printf("Hue range check: %d\n", !isHueInRange(currHue, d->startHue, d->endHue));\
+                printf("Sat range check: %d\n", currSat < d->minSat || currSat > d->maxSat);\
+
+static inline float fast_atan2f(float y, float x) { // https://gist.github.com/velipso/fc5a58b7d9fc020ecf7f2f5fc907dfa5
+	static const float c1 = M_PI / 4.0;
+	static const float c2 = M_PI * 3.0 / 4.0;
+	static const float c3 = M_PI / 16.0;
+	static const float c4 = M_PI * 5.0 / 16.0;
+	if (y == 0 && x == 0)
+		return 0;
+	float abs_y = fabsf(y);
+	float angle;
+	if (x >= 0) {
+		float r = ((x - abs_y) / (x + abs_y));
+		angle = c3 * r * r * r - c4 * r + c1;
+	}
+	else {
+		float r = ((x + abs_y) / (abs_y - x));
+		angle = c3 * r * r * r - c4 * r + c2;
+	}
+	if (y < 0)
+		return -angle;
+	return angle;
+}
+
+static inline float fast_sqrtf(float f) { // https://github.com/awidesky/MyPapers/blob/master/fsqrt/test/iterationtest/code/speed_test.cpp
+	int i = *(int *)&f;
+	i = (i >> 1) + 0x1fbb67ae;
+	float f1 = *(float *)&i;
+	return 0.5F * (f1 + f / f1);
+}
+
+static inline bool isHueInRange(float hue, float startHue, float endHue) {
+    if (startHue == 0.0f && endHue == 360.0f) {
+        return true;
+    }
+    // Normalize hue to [0, 360)
+    hue = fmod(hue + 360.0f, 360.0f);
+    startHue = fmod(startHue + 360.0f, 360.0f);
+    endHue = fmod(endHue + 360.0f, 360.0f);
+    
+    if (startHue <= endHue) {
+        return hue >= startHue && hue <= endHue;
+    } else {
+        // Handle wrap-around case
+        return hue >= startHue || hue <= endHue;
+    }
+}
+
 struct TweakData {
     VSNode* node;
     float hue;
@@ -17,6 +69,10 @@ struct TweakData {
     float bright;
     float cont;
     bool coring;
+    float startHue;
+    float endHue;
+    float maxSat;
+    float minSat;
 };
 
 static void copyPlaneData_uint8(const uint8_t* src, uint8_t* dst, int width, int height,
@@ -51,10 +107,10 @@ void process_luma_uint16(const uint16_t* srcp, uint16_t* dstp, const int width, 
                             const ptrdiff_t src_stride, const ptrdiff_t dst_stride,
                             const float cont, const float bright,
                             const uint16_t luma_min, const uint16_t luma_max) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
+    [[unlikely]] if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
         copyPlaneData_uint16(srcp, dstp, width, height, src_stride, dst_stride);
         return;
     }
@@ -121,10 +177,10 @@ void process_chroma_uint16( const uint16_t* srcp_u, const uint16_t* srcp_v, uint
                                 const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
                                 const float hue_sin, const float hue_cos, const float sat,
                                 const uint16_t chroma_min, const uint16_t chroma_max, const uint16_t gray) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
+    [[unlikely]] if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
         copyPlaneData_uint16(srcp_u, dstp_u, width, height, src_stride_u, dst_stride_u);
         copyPlaneData_uint16(srcp_v, dstp_v, width, height, src_stride_v, dst_stride_v);
         return;
@@ -206,10 +262,10 @@ void process_luma_float(const float* srcp, float* dstp, const int width, const i
                             const ptrdiff_t src_stride, const ptrdiff_t dst_stride,
                             const float cont, const float bright,
                             const float luma_min, const float luma_max) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
+    [[unlikely]] if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
         copyPlaneData_float(srcp, dstp, width, height, src_stride, dst_stride);
         return;
     }
@@ -255,10 +311,10 @@ void process_chroma_float(  const float* srcp_u, const float* srcp_v, float* dst
                                 const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
                                 const float hue_sin, const float hue_cos, const float sat,
                                 const float chroma_min, const float chroma_max, const float gray) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
+    [[unlikely]] if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
         copyPlaneData_float(srcp_u, dstp_u, width, height, src_stride_u, dst_stride_u);
         copyPlaneData_float(srcp_v, dstp_v, width, height, src_stride_v, dst_stride_v);
         return;
@@ -331,10 +387,10 @@ void process_luma_uint8(const uint8_t* srcp, uint8_t* dstp, const int width, con
                             const ptrdiff_t src_stride, const ptrdiff_t dst_stride,
                             const float cont, const float bright,
                             const uint8_t luma_min, const uint8_t luma_max) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
+    [[unlikely]] if (std::abs(bright) < 1e-6f && std::abs(cont - 1.0f) < 1e-6f) {
         copyPlaneData_uint8(srcp, dstp, width, height, src_stride, dst_stride);
         return;
     }
@@ -419,10 +475,10 @@ void process_chroma_uint8(  const uint8_t* srcp_u, const uint8_t* srcp_v, uint8_
                                 const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
                                 const float hue_sin, const float hue_cos, const float sat,
                                 const uint8_t chroma_min, const uint8_t chroma_max, const uint8_t gray) {
-    if (width <= 0 || height <= 0)
+    [[unlikely]] if (width <= 0 || height <= 0)
         return;
 
-    if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
+    [[unlikely]] if (std::abs(sat - 1.0f) < 1e-6f && std::abs(hue_sin) < 1e-6f) {
         copyPlaneData_uint8(srcp_u, dstp_u, width, height, src_stride_u, dst_stride_u);
         copyPlaneData_uint8(srcp_v, dstp_v, width, height, src_stride_v, dst_stride_v);
         return;
@@ -549,6 +605,11 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
 
     bool process_luma = (d->bright != 0.0f || d->cont != 1.0f);
     bool process_chroma = (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f));
+    
+    // Check if we need to do range processing
+    bool do_range_check = (d->startHue != 0.0f || d->endHue != 360.0f || 
+                            d->minSat != 0.0f || d->maxSat != 150.0f) && 
+                            process_chroma;
 
     const VSFrame* planeSrc[3] = {nullptr, nullptr, nullptr};
     int planes[3] = {0, 1, 2};
@@ -602,6 +663,40 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint8_t>(chroma_min),
                             static_cast<uint8_t>(chroma_max),
                             static_cast<uint8_t>(gray));
+
+                // Apply range check if needed
+                if (do_range_check) {
+                    const uint8_t* srcp_u = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 1));
+                    const uint8_t* srcp_v = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 2));
+                    uint8_t* dstp_u = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 1));
+                    uint8_t* dstp_v = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 2));
+                    const int stride_src_u = vsapi->getStride(src, 1);
+                    const int stride_src_v = vsapi->getStride(src, 2);
+                    const int stride_dst_u = vsapi->getStride(dst, 1);
+                    const int stride_dst_v = vsapi->getStride(dst, 2);
+                    for (int y = 0; y < chroma_height; y++) {
+                        #pragma omp simd
+                        for (int x = 0; x < chroma_width; x++) {
+                            const uint8_t src_u = *(srcp_u + x);
+                            const uint8_t src_v = *(srcp_v + x);
+                            float u = static_cast<float>(src_u - gray);
+                            float v = static_cast<float>(src_v - gray);
+                            
+                            float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                            if (currHue < 0) currHue += 360.0f;
+                            float currSat = fast_sqrtf(u * u + v * v);
+                            if (!isHueInRange(currHue, d->startHue, d->endHue) || 
+                                currSat < d->minSat || currSat > d->maxSat) {
+                                *(dstp_u + x) = src_u;
+                                *(dstp_v + x) = src_v;
+                            }
+                        }
+                        srcp_u += stride_src_u;
+                        srcp_v += stride_src_v;
+                        dstp_u += stride_dst_u;
+                        dstp_v += stride_dst_v;
+                    }
+                }
             }
         } else {
             if (process_luma) {
@@ -629,6 +724,44 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint16_t>(chroma_min),
                             static_cast<uint16_t>(chroma_max),
                             static_cast<uint16_t>(gray));
+
+                // Apply range check if needed
+                if (do_range_check) {
+                    const uint16_t* srcp_u = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 1));
+                    const uint16_t* srcp_v = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 2));
+                    uint16_t* dstp_u = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 1));
+                    uint16_t* dstp_v = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 2));
+                    const int stride_src_u = vsapi->getStride(src, 1) / 2;
+                    const int stride_src_v = vsapi->getStride(src, 2) / 2;
+                    const int stride_dst_u = vsapi->getStride(dst, 1) / 2;
+                    const int stride_dst_v = vsapi->getStride(dst, 2) / 2;
+
+                    for (int y = 0; y < chroma_height; y++) {
+                        #pragma omp simd
+                        for (int x = 0; x < chroma_width; x++) {
+                            const uint16_t src_u = *(srcp_u + x);
+                            const uint16_t src_v = *(srcp_v + x);
+                            
+                            float u = static_cast<float>(src_u - gray);
+                            float v = static_cast<float>(src_v - gray);
+                            
+                            float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                            if (currHue < 0) currHue += 360.0f;
+                            
+                            float currSat = fast_sqrtf(u * u + v * v);
+                            
+                            if (!isHueInRange(currHue, d->startHue, d->endHue) || 
+                                currSat < d->minSat || currSat > d->maxSat) {
+                                *(dstp_u + x) = src_u;
+                                *(dstp_v + x) = src_v;
+                            }
+                        }
+                        srcp_u += stride_src_u;
+                        srcp_v += stride_src_v;
+                        dstp_u += stride_dst_u;
+                        dstp_v += stride_dst_v;
+                    }
+                }
             }
         }
     } else {
@@ -656,6 +789,44 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                         vsapi->getStride(dst, 2) / sizeof(float),
                         hue_sin, hue_cos, d->sat,
                         -0.5f, 0.5f, 0.0f);
+
+            // Apply range check if needed
+            if (do_range_check) {
+                const float* srcp_u = reinterpret_cast<const float*>(vsapi->getReadPtr(src, 1));
+                const float* srcp_v = reinterpret_cast<const float*>(vsapi->getReadPtr(src, 2));
+                float* dstp_u = reinterpret_cast<float*>(vsapi->getWritePtr(dst, 1));
+                float* dstp_v = reinterpret_cast<float*>(vsapi->getWritePtr(dst, 2));
+                const int stride_src_u = vsapi->getStride(src, 1) / sizeof(float);
+                const int stride_src_v = vsapi->getStride(src, 2) / sizeof(float);
+                const int stride_dst_u = vsapi->getStride(dst, 1) / sizeof(float);
+                const int stride_dst_v = vsapi->getStride(dst, 2) / sizeof(float);
+
+                for (int y = 0; y < chroma_height; y++) {
+                    #pragma omp simd
+                    for (int x = 0; x < chroma_width; x++) {
+                        const float src_u = *(srcp_u + x);
+                        const float src_v = *(srcp_v + x);
+                        
+                        float u = src_u;
+                        float v = src_v;
+                        
+                        float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                        if (currHue < 0) currHue += 360.0f;
+                        
+                        float currSat = fast_sqrtf(u * u + v * v);
+                        
+                        if (!isHueInRange(currHue, d->startHue, d->endHue) || 
+                            currSat < d->minSat || currSat > d->maxSat) {
+                            *(dstp_u + x) = src_u;
+                            *(dstp_v + x) = src_v;
+                        }
+                    }
+                    srcp_u += stride_src_u;
+                    srcp_v += stride_src_v;
+                    dstp_u += stride_dst_u;
+                    dstp_v += stride_dst_v;
+                }
+            }
         }
     }
 
@@ -680,13 +851,13 @@ static void VS_CC tweakCreate(const VSMap* in, VSMap* out, void* userData, VSCor
     d.node = vsapi->mapGetNode(in, "clip", 0, &err);
     const VSVideoInfo* vi = vsapi->getVideoInfo(d.node);
 
-    if (!vsh::isConstantVideoFormat(vi)) {
+    [[unlikely]] if (!vsh::isConstantVideoFormat(vi)) {
         vsapi->mapSetError(out, "Tweak: only clips with constant format are accepted");
         vsapi->freeNode(d.node);
         return;
     }
 
-    if (vi->format.colorFamily == cfRGB) {
+    [[unlikely]] if (vi->format.colorFamily == cfRGB) {
         vsapi->mapSetError(out, "Tweak: RGB clips are not accepted");
         vsapi->freeNode(d.node);
         return;
@@ -717,6 +888,38 @@ static void VS_CC tweakCreate(const VSMap* in, VSMap* out, void* userData, VSCor
     if (err)
         d.coring = true;
 
+    err = 0;
+    d.startHue = static_cast<float>(vsapi->mapGetFloat(in, "startHue", 0, &err));
+    if (err)
+        d.startHue = 0.0f;
+
+    err = 0;
+    d.endHue = static_cast<float>(vsapi->mapGetFloat(in, "endHue", 0, &err));
+    if (err)
+        d.endHue = 360.0f;
+
+    err = 0;
+    d.maxSat = static_cast<float>(vsapi->mapGetFloat(in, "maxSat", 0, &err));
+    if (err)
+        d.maxSat = 150.0f;
+
+    err = 0;
+    d.minSat = static_cast<float>(vsapi->mapGetFloat(in, "minSat", 0, &err));
+    if (err)
+        d.minSat = 0.0f;
+
+    if (d.minSat >= d.maxSat) {
+        vsapi->mapSetError(out, "Tweak: minSat must be less than maxSat");
+        vsapi->freeNode(d.node);
+        return;
+    }
+
+    if (d.minSat < 0.0f || d.maxSat > 150.0f) {
+        vsapi->mapSetError(out, "Tweak: saturation values must be between 0 and 150");
+        vsapi->freeNode(d.node);
+        return;
+    }
+
     data = static_cast<TweakData*>(malloc(sizeof(TweakData)));
     if (!data) {
         vsapi->mapSetError(out, "Tweak: malloc failed");
@@ -730,14 +933,19 @@ static void VS_CC tweakCreate(const VSMap* in, VSMap* out, void* userData, VSCor
 }
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin* plugin, const VSPLUGINAPI* vspapi) {
-    vspapi->configPlugin("com.yuygfgg.adjust", "adjust", "VapourSynth Tweak Filter", VS_MAKE_VERSION(1, 0), VAPOURSYNTH_API_VERSION, 0, plugin);
+    vspapi->configPlugin("com.yuygfgg.adjust", "adjust", "VapourSynth Tweak Filter", 
+                        VS_MAKE_VERSION(1, 0), VAPOURSYNTH_API_VERSION, 0, plugin);
     vspapi->registerFunction("Tweak",
                             "clip:vnode;"
                             "hue:float:opt;"
                             "sat:float:opt;"
                             "bright:float:opt;"
                             "cont:float:opt;"
-                            "coring:int:opt;",
+                            "coring:int:opt;"
+                            "startHue:float:opt;"
+                            "endHue:float:opt;"
+                            "maxSat:float:opt;"
+                            "minSat:float:opt;",
                             "clip:vnode;",
                             tweakCreate, nullptr, plugin);
 }
