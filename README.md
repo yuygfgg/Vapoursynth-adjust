@@ -1,4 +1,6 @@
-Port of http://avisynth.nl/index.php/Tweak. `interp` `dither` `realcalc` `dither_strength` are not currently supported.
+Port of the built-in Avisynth filter Tweak. `interp` `dither` `realcalc` `dither_strength` `sse` are not currently supported.
+
+If the `__ARM_NEON__` marco is defined, the plugin will compile with neon optimizations. Otherwise, C routines are taken (compiler automatic vectorize may still happen).
 
 ## Usage
 
