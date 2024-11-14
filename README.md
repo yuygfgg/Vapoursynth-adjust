@@ -1,5 +1,10 @@
-Port of https://github.com/dubhater/vapoursynth-adjust. Roughly same speed as akarin.Expr impl, but both >1000 fps on 1080P YUV444 BlankClip.
+Port of https://github.com/dubhater/vapoursynth-adjust. Roughly same speed as akarin.Expr impl, both >1000 fps on 1080P YUV444 BlankClip.
 
+## Usage
+
+```python
+core.adjust.Tweak(clip=clip, [float hue = 0, float sat = 1, float bright = 0, float  cont = 1, bool coring = True])
+```
 ```
 Parameters:
 
@@ -24,4 +29,11 @@ cont:
 Adjust the contrast. Values above 1.0 increase it, while values below 1.0 decrease it.
 
 Range: 0.0 .. 10.0
+```
+
+## Compilation
+```bash
+meson setup build
+ninja -C build
+ninja -C build install
 ```
