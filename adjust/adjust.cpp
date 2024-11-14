@@ -21,7 +21,7 @@ struct TweakData {
 
 // 手动复制一个平面的数据
 static void copyPlaneData_uint8(const uint8_t* src, uint8_t* dst, int width, int height,
-                          ptrdiff_t src_stride, ptrdiff_t dst_stride) {
+                            ptrdiff_t src_stride, ptrdiff_t dst_stride) {
     for (int y = 0; y < height; y++) {
         memcpy(dst, src, width * sizeof(uint8_t));
         src += src_stride;
@@ -30,7 +30,7 @@ static void copyPlaneData_uint8(const uint8_t* src, uint8_t* dst, int width, int
 }
 
 static void copyPlaneData_uint16(const uint16_t* src, uint16_t* dst, int width, int height,
-                          ptrdiff_t src_stride, ptrdiff_t dst_stride) {
+                            ptrdiff_t src_stride, ptrdiff_t dst_stride) {
     for (int y = 0; y < height; y++) {
         memcpy(dst, src, width * sizeof(uint16_t));
         src += src_stride;
@@ -39,7 +39,7 @@ static void copyPlaneData_uint16(const uint16_t* src, uint16_t* dst, int width, 
 }
 
 static void copyPlaneData_float(const float* src, float* dst, int width, int height,
-                          ptrdiff_t src_stride, ptrdiff_t dst_stride) {
+                            ptrdiff_t src_stride, ptrdiff_t dst_stride) {
     for (int y = 0; y < height; y++) {
         memcpy(dst, src, width * sizeof(float));
         src += src_stride;
@@ -49,9 +49,9 @@ static void copyPlaneData_float(const float* src, float* dst, int width, int hei
 
 // 16-bit luma processing with NEON
 void process_luma_uint16(const uint16_t* srcp, uint16_t* dstp, const int width, const int height,
-                             const ptrdiff_t src_stride, const ptrdiff_t dst_stride,
-                             const float cont, const float bright,
-                             const uint16_t luma_min, const uint16_t luma_max) {
+                            const ptrdiff_t src_stride, const ptrdiff_t dst_stride,
+                            const float cont, const float bright,
+                            const uint16_t luma_min, const uint16_t luma_max) {
     if (width <= 0 || height <= 0)
         return;
 
@@ -116,12 +116,12 @@ void process_luma_uint16(const uint16_t* srcp, uint16_t* dstp, const int width, 
 }
 
 // 16-bit chroma processing with NEON
-void process_chroma_uint16(const uint16_t* srcp_u, const uint16_t* srcp_v, uint16_t* dstp_u, uint16_t* dstp_v,
-                               const int width, const int height,
-                               const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
-                               const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
-                               const float hue_sin, const float hue_cos, const float sat,
-                               const uint16_t chroma_min, const uint16_t chroma_max, const uint16_t gray) {
+void process_chroma_uint16( const uint16_t* srcp_u, const uint16_t* srcp_v, uint16_t* dstp_u, uint16_t* dstp_v,
+                                const int width, const int height,
+                                const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
+                                const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
+                                const float hue_sin, const float hue_cos, const float sat,
+                                const uint16_t chroma_min, const uint16_t chroma_max, const uint16_t gray) {
     if (width <= 0 || height <= 0)
         return;
 
@@ -250,12 +250,12 @@ void process_luma_float(const float* srcp, float* dstp, const int width, const i
     }
 }
 
-void process_chroma_float(const float* srcp_u, const float* srcp_v, float* dstp_u, float* dstp_v,
-                              const int width, const int height,
-                              const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
-                              const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
-                              const float hue_sin, const float hue_cos, const float sat,
-                              const float chroma_min, const float chroma_max, const float gray) {
+void process_chroma_float(  const float* srcp_u, const float* srcp_v, float* dstp_u, float* dstp_v,
+                                const int width, const int height,
+                                const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
+                                const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
+                                const float hue_sin, const float hue_cos, const float sat,
+                                const float chroma_min, const float chroma_max, const float gray) {
     if (width <= 0 || height <= 0)
         return;
 
@@ -414,12 +414,12 @@ void process_luma_uint8(const uint8_t* srcp, uint8_t* dstp, const int width, con
 }
 
 // 8-bit chroma processing with NEON
-void process_chroma_uint8(const uint8_t* srcp_u, const uint8_t* srcp_v, uint8_t* dstp_u, uint8_t* dstp_v,
-                              const int width, const int height,
-                              const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
-                              const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
-                              const float hue_sin, const float hue_cos, const float sat,
-                              const uint8_t chroma_min, const uint8_t chroma_max, const uint8_t gray) {
+void process_chroma_uint8(  const uint8_t* srcp_u, const uint8_t* srcp_v, uint8_t* dstp_u, uint8_t* dstp_v,
+                                const int width, const int height,
+                                const ptrdiff_t src_stride_u, const ptrdiff_t src_stride_v,
+                                const ptrdiff_t dst_stride_u, const ptrdiff_t dst_stride_v,
+                                const float hue_sin, const float hue_cos, const float sat,
+                                const uint8_t chroma_min, const uint8_t chroma_max, const uint8_t gray) {
     if (width <= 0 || height <= 0)
         return;
 
@@ -548,10 +548,27 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
     } else if (d->bright == 0.0f && d->cont == 1.0f && d->hue == 0.0f && d->sat == 1.0f) {
         return src;
     }
+
+    bool process_luma = (d->bright != 0.0f || d->cont != 1.0f);
+    bool process_chroma = (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f));
+
+    // 准备平面源数组和平面索引数组
+    const VSFrame* planeSrc[3] = {nullptr, nullptr, nullptr};
+    int planes[3] = {0, 1, 2};
     
-    VSFrame* dst = vsapi->newVideoFrame(fi, vsapi->getFrameWidth(src, 0), 
-                                        vsapi->getFrameHeight(src, 0), src, core);
-    
+    // 对于不需要处理的平面，设置源平面
+    if (!process_luma)
+        planeSrc[0] = src;
+    if (!process_chroma && fi->colorFamily != cfGray) {
+        planeSrc[1] = src;
+        planeSrc[2] = src;
+    }
+
+    // 创建新帧，复用不需要处理的平面
+    VSFrame* dst = vsapi->newVideoFrame2(fi, vsapi->getFrameWidth(src, 0), 
+                                        vsapi->getFrameHeight(src, 0), 
+                                        planeSrc, planes, src, core);
+
     const float hue_rad = d->hue * M_PI / 180.0f;
     const float hue_sin = std::sin(hue_rad);
     const float hue_cos = std::cos(hue_rad);
@@ -565,8 +582,19 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
         const int luma_max = d->coring ? (235 << (bits - 8)) : (1 << bits) - 1;
         
         if (bits == 8) {
+            // 处理亮度平面
+            if (process_luma) {
+                process_luma_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 0)),
+                            reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 0)),
+                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
+                            vsapi->getStride(src, 0), vsapi->getStride(dst, 0),
+                            d->cont, d->bright,
+                            static_cast<uint8_t>(luma_min),
+                            static_cast<uint8_t>(luma_max));
+            }
+
             // 处理色度平面
-            if (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f)) {
+            if (fi->colorFamily != cfGray && process_chroma) {
                 const int chroma_width = vsapi->getFrameWidth(src, 1);
                 const int chroma_height = vsapi->getFrameHeight(src, 1);
                 
@@ -581,44 +609,21 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint8_t>(chroma_min),
                             static_cast<uint8_t>(chroma_max),
                             static_cast<uint8_t>(gray));
-            } else if (fi->colorFamily != cfGray) {
-                // 直接复制色度平面
-                const int chroma_width = vsapi->getFrameWidth(src, 1);
-                const int chroma_height = vsapi->getFrameHeight(src, 1);
-                
-                copyPlaneData_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 1)),
-                            reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 1)),
-                            chroma_width, chroma_height,
-                            vsapi->getStride(src, 1),
-                            vsapi->getStride(dst, 1));
-                            
-                copyPlaneData_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 2)),
-                            reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 2)),
-                            chroma_width, chroma_height,
-                            vsapi->getStride(src, 2),
-                            vsapi->getStride(dst, 2));
-            }
-            
-            // 处理亮度平面
-            if (d->bright != 0.0f || d->cont != 1.0f) {
-                process_luma_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 0)),
-                            reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 0)),
-                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                            vsapi->getStride(src, 0), vsapi->getStride(dst, 0),
-                            d->cont, d->bright,
-                            static_cast<uint8_t>(luma_min),
-                            static_cast<uint8_t>(luma_max));
-            } else {
-                // 直接复制亮度平面
-                copyPlaneData_uint8(reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 0)),
-                            reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 0)),
-                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                            vsapi->getStride(src, 0),
-                            vsapi->getStride(dst, 0));
             }
         } else {
+            // 处理亮度平面
+            if (process_luma) {
+                process_luma_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 0)),
+                            reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 0)),
+                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
+                            vsapi->getStride(src, 0) / 2, vsapi->getStride(dst, 0) / 2,
+                            d->cont, d->bright,
+                            static_cast<uint16_t>(luma_min),
+                            static_cast<uint16_t>(luma_max));
+            }
+
             // 处理色度平面
-            if (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f)) {
+            if (fi->colorFamily != cfGray && process_chroma) {
                 const int chroma_width = vsapi->getFrameWidth(src, 1);
                 const int chroma_height = vsapi->getFrameHeight(src, 1);
                 
@@ -633,45 +638,21 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                             static_cast<uint16_t>(chroma_min),
                             static_cast<uint16_t>(chroma_max),
                             static_cast<uint16_t>(gray));
-            } else if (fi->colorFamily != cfGray) {
-                // 直接复制色度平面
-                const int chroma_width = vsapi->getFrameWidth(src, 1);
-                const int chroma_height = vsapi->getFrameHeight(src, 1);
-                
-                copyPlaneData_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 1)),
-                            reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 1)),
-                            chroma_width, chroma_height,
-                            vsapi->getStride(src, 1) / 2,
-                            vsapi->getStride(dst, 1) / 2);
-                            
-                copyPlaneData_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 2)),
-                            reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 2)),
-                            chroma_width, chroma_height,
-                            vsapi->getStride(src, 2) / 2,
-                            vsapi->getStride(dst, 2) / 2);
-            }
-            
-            // 处理亮度平面
-            if (d->bright != 0.0f || d->cont != 1.0f) {
-                process_luma_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 0)),
-                            reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 0)),
-                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                            vsapi->getStride(src, 0) / 2, vsapi->getStride(dst, 0) / 2,
-                            d->cont, d->bright,
-                            static_cast<uint16_t>(luma_min),
-                            static_cast<uint16_t>(luma_max));
-            } else {
-                // 直接复制亮度平面
-                copyPlaneData_uint16(reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 0)),
-                            reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 0)),
-                            vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                            vsapi->getStride(src, 0) / 2,
-                            vsapi->getStride(dst, 0) / 2);
             }
         }
     } else {
+        // 处理亮度平面
+        if (process_luma) {
+            process_luma_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 0)),
+                        reinterpret_cast<float*>(vsapi->getWritePtr(dst, 0)),
+                        vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
+                        vsapi->getStride(src, 0) / sizeof(float),
+                        vsapi->getStride(dst, 0) / sizeof(float),
+                        d->cont, d->bright, 0.0f, 1.0f);
+        }
+
         // 处理色度平面
-        if (fi->colorFamily != cfGray && (d->hue != 0.0f || d->sat != 1.0f)) {
+        if (fi->colorFamily != cfGray && process_chroma) {
             const int chroma_width = vsapi->getFrameWidth(src, 1);
             const int chroma_height = vsapi->getFrameHeight(src, 1);
             
@@ -686,42 +667,9 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                         vsapi->getStride(dst, 2) / sizeof(float),
                         hue_sin, hue_cos, d->sat,
                         -0.5f, 0.5f, 0.0f);
-        } else if (fi->colorFamily != cfGray) {
-            // 直接复制色度平面
-            const int chroma_width = vsapi->getFrameWidth(src, 1);
-            const int chroma_height = vsapi->getFrameHeight(src, 1);
-            
-            copyPlaneData_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 1)),
-                        reinterpret_cast<float*>(vsapi->getWritePtr(dst, 1)),
-                        chroma_width, chroma_height,
-                        vsapi->getStride(src, 1) / sizeof(float),
-                        vsapi->getStride(dst, 1) / sizeof(float));
-                        
-            copyPlaneData_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 2)),
-                        reinterpret_cast<float*>(vsapi->getWritePtr(dst, 2)),
-                        chroma_width, chroma_height,
-                        vsapi->getStride(src, 2) / sizeof(float),
-                        vsapi->getStride(dst, 2) / sizeof(float));
-        }
-        
-        // 处理亮度平面
-        if (d->bright != 0.0f || d->cont != 1.0f) {
-            process_luma_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 0)),
-                        reinterpret_cast<float*>(vsapi->getWritePtr(dst, 0)),
-                        vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                        vsapi->getStride(src, 0) / sizeof(float),
-                        vsapi->getStride(dst, 0) / sizeof(float),
-                        d->cont, d->bright, 0.0f, 1.0f);
-        } else {
-            // 直接复制亮度平面
-            copyPlaneData_float(reinterpret_cast<const float*>(vsapi->getReadPtr(src, 0)),
-                        reinterpret_cast<float*>(vsapi->getWritePtr(dst, 0)),
-                        vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0),
-                        vsapi->getStride(src, 0) / sizeof(float),
-                        vsapi->getStride(dst, 0) / sizeof(float));
         }
     }
-    
+
     vsapi->freeFrame(src);
     return dst;
 }

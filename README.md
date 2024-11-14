@@ -1,4 +1,4 @@
-Port of https://github.com/dubhater/vapoursynth-adjust. Identical speed (or a bit slower) than akarin.Expr impl, but both >1000 fps on 1080P YUV444 BlankClip.
+Port of https://github.com/dubhater/vapoursynth-adjust. Roughly same speed as akarin.Expr impl, but both >1000 fps on 1080P YUV444 BlankClip.
 
 ```
 Parameters:
