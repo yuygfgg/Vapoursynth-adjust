@@ -66,23 +66,19 @@ static inline float calculateSaturationFactor(float chroma_sat, float minSat, fl
         return 1.0f;
     }
 
+    if (chroma_sat >= min_chroma && chroma_sat <= max_chroma)
+        return sat;
+
     if (chroma_sat < min_chroma - interp || chroma_sat > max_chroma + interp)
         return 1.0f;
 
-    if (chroma_sat >= min_chroma + interp && chroma_sat <= max_chroma - interp)
-        return sat;
-
-    if (chroma_sat < min_chroma + interp) {
-        float t = (chroma_sat - (min_chroma - interp)) / (2 * interp);
+    if (chroma_sat < min_chroma) {
+        float t = (chroma_sat - (min_chroma - interp)) / interp;
         return 1.0f + (sat - 1.0f) * t;
     }
 
-    if (chroma_sat > max_chroma - interp) {
-        float t = (max_chroma + interp - chroma_sat) / (2 * interp);
-        return sat + (1.0f - sat) * t;
-    }
-
-    return sat;
+    float t = 1.0f - (chroma_sat - max_chroma) / interp;
+    return sat + (1.0f - sat) * (1.0f - t);
 }
 
 struct TweakData {
@@ -632,9 +628,9 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
     
     // Check if we need to do range processing
     bool do_range_check = (d->startHue != 0.0f || d->endHue != 360.0f || 
-                      d->minSat != 0.0f || d->maxSat != 150.0f ||
-                      d->interp != 0.0f) && 
-                      process_chroma;
+                        d->minSat != 0.0f || d->maxSat != 150.0f ||
+                        d->interp != 0.0f) && 
+                        process_chroma;
 
     const VSFrame* planeSrc[3] = {nullptr, nullptr, nullptr};
     int planes[3] = {0, 1, 2};
