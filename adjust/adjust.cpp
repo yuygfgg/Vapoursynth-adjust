@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 
 #ifdef __ARM_NEON__
 #include <arm_neon.h>
@@ -642,6 +643,11 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
         planeSrc[2] = src;
     }
 
+    if (do_range_check && fi->sampleType == stInteger) {
+        std::cerr << "Tweak: min/maxSat, start/endHue is currently only supported on float input." << std::endl;
+        exit(1);
+    }
+
     VSFrame* dst = vsapi->newVideoFrame2(fi, vsapi->getFrameWidth(src, 0), 
                                         vsapi->getFrameHeight(src, 0), 
                                         planeSrc, planes, src, core);
@@ -687,46 +693,47 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
 
                 // Apply range check if needed
                 if (do_range_check) {
-                    const uint8_t* srcp_u = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 1));
-                    const uint8_t* srcp_v = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 2));
-                    uint8_t* dstp_u = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 1));
-                    uint8_t* dstp_v = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 2));
-                    const int stride_src_u = vsapi->getStride(src, 1);
-                    const int stride_src_v = vsapi->getStride(src, 2);
-                    const int stride_dst_u = vsapi->getStride(dst, 1);
-                    const int stride_dst_v = vsapi->getStride(dst, 2);
+                // BUGGY CODE
+                //     const uint8_t* srcp_u = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 1));
+                //     const uint8_t* srcp_v = reinterpret_cast<const uint8_t*>(vsapi->getReadPtr(src, 2));
+                //     uint8_t* dstp_u = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 1));
+                //     uint8_t* dstp_v = reinterpret_cast<uint8_t*>(vsapi->getWritePtr(dst, 2));
+                //     const int stride_src_u = vsapi->getStride(src, 1);
+                //     const int stride_src_v = vsapi->getStride(src, 2);
+                //     const int stride_dst_u = vsapi->getStride(dst, 1);
+                //     const int stride_dst_v = vsapi->getStride(dst, 2);
 
-                    for (int y = 0; y < chroma_height; y++) {
-                        #pragma omp simd
-                        for (int x = 0; x < chroma_width; x++) {
-                            const uint8_t src_u = *(srcp_u + x);
-                            const uint8_t src_v = *(srcp_v + x);
-                            float u = static_cast<float>(src_u - gray);
-                            float v = static_cast<float>(src_v - gray);
+                //     for (int y = 0; y < chroma_height; y++) {
+                //         #pragma omp simd
+                //         for (int x = 0; x < chroma_width; x++) {
+                //             const uint8_t src_u = *(srcp_u + x);
+                //             const uint8_t src_v = *(srcp_v + x);
+                //             float u = static_cast<float>(src_u - gray);
+                //             float v = static_cast<float>(src_v - gray);
                             
-                            float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
-                            if (currHue < 0) currHue += 360.0f;
+                //             float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                //             if (currHue < 0) currHue += 360.0f;
                             
-                            float currSat = fast_sqrtf(u * u + v * v);
-                            if (isHueInRange(currHue, d->startHue, d->endHue)) {
-                                float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
-                                float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
-                                float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
+                //             float currSat = fast_sqrtf(u * u + v * v);
+                //             if (isHueInRange(currHue, d->startHue, d->endHue)) {
+                //                 float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
+                //                 float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
+                //                 float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
                                 
-                                *(dstp_u + x) = static_cast<uint8_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
-                                                                        static_cast<float>(chroma_max)));
-                                *(dstp_v + x) = static_cast<uint8_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
-                                                                        static_cast<float>(chroma_max)));
-                            } else {
-                                *(dstp_u + x) = src_u;
-                                *(dstp_v + x) = src_v;
-                            }
-                        }
-                        srcp_u += stride_src_u;
-                        srcp_v += stride_src_v;
-                        dstp_u += stride_dst_u;
-                        dstp_v += stride_dst_v;
-                    }
+                //                 *(dstp_u + x) = static_cast<uint8_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
+                //                                                         static_cast<float>(chroma_max)));
+                //                 *(dstp_v + x) = static_cast<uint8_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
+                //                                                         static_cast<float>(chroma_max)));
+                //             } else {
+                //                 *(dstp_u + x) = src_u;
+                //                 *(dstp_v + x) = src_v;
+                //             }
+                //         }
+                //         srcp_u += stride_src_u;
+                //         srcp_v += stride_src_v;
+                //         dstp_u += stride_dst_u;
+                //         dstp_v += stride_dst_v;
+                //     }
                 }
             }
         } else {
@@ -758,46 +765,47 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
 
                 // Apply range check if needed
                 if (do_range_check) {
-                    const uint16_t* srcp_u = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 1));
-                    const uint16_t* srcp_v = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 2));
-                    uint16_t* dstp_u = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 1));
-                    uint16_t* dstp_v = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 2));
-                    const int stride_src_u = vsapi->getStride(src, 1) / 2;
-                    const int stride_src_v = vsapi->getStride(src, 2) / 2;
-                    const int stride_dst_u = vsapi->getStride(dst, 1) / 2;
-                    const int stride_dst_v = vsapi->getStride(dst, 2) / 2;
+                    // BUGGY CODE
+                    // const uint16_t* srcp_u = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 1));
+                    // const uint16_t* srcp_v = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, 2));
+                    // uint16_t* dstp_u = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 1));
+                    // uint16_t* dstp_v = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, 2));
+                    // const int stride_src_u = vsapi->getStride(src, 1) / 2;
+                    // const int stride_src_v = vsapi->getStride(src, 2) / 2;
+                    // const int stride_dst_u = vsapi->getStride(dst, 1) / 2;
+                    // const int stride_dst_v = vsapi->getStride(dst, 2) / 2;
 
-                    for (int y = 0; y < chroma_height; y++) {
-                        #pragma omp simd
-                        for (int x = 0; x < chroma_width; x++) {
-                            const uint16_t src_u = *(srcp_u + x);
-                            const uint16_t src_v = *(srcp_v + x);
-                            float u = static_cast<float>(src_u - gray);
-                            float v = static_cast<float>(src_v - gray);
+                    // for (int y = 0; y < chroma_height; y++) {
+                    //     #pragma omp simd
+                    //     for (int x = 0; x < chroma_width; x++) {
+                    //         const uint16_t src_u = *(srcp_u + x);
+                    //         const uint16_t src_v = *(srcp_v + x);
+                    //         float u = static_cast<float>(src_u - gray);
+                    //         float v = static_cast<float>(src_v - gray);
                             
-                            float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
-                            if (currHue < 0) currHue += 360.0f;
+                    //         float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                    //         if (currHue < 0) currHue += 360.0f;
                             
-                            float currSat = fast_sqrtf(u * u + v * v) * (1.0f / (1 << (bits - 8)));
-                            if (isHueInRange(currHue, d->startHue, d->endHue)) {
-                                float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
-                                float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
-                                float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
+                    //         float currSat = fast_sqrtf(u * u + v * v) * (1.0f / (1 << (bits - 8)));
+                    //         if (isHueInRange(currHue, d->startHue, d->endHue)) {
+                    //             float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
+                    //             float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor + gray;
+                    //             float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor + gray;
                                 
-                                *(dstp_u + x) = static_cast<uint16_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
-                                                                        static_cast<float>(chroma_max)));
-                                *(dstp_v + x) = static_cast<uint16_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
-                                                                        static_cast<float>(chroma_max)));
-                            } else {
-                                *(dstp_u + x) = src_u;
-                                *(dstp_v + x) = src_v;
-                            }
-                        }
-                        srcp_u += stride_src_u;
-                        srcp_v += stride_src_v;
-                        dstp_u += stride_dst_u;
-                        dstp_v += stride_dst_v;
-                    }
+                    //             *(dstp_u + x) = static_cast<uint16_t>(CLAMP(new_u, static_cast<float>(chroma_min), 
+                    //                                                     static_cast<float>(chroma_max)));
+                    //             *(dstp_v + x) = static_cast<uint16_t>(CLAMP(new_v, static_cast<float>(chroma_min), 
+                    //                                                     static_cast<float>(chroma_max)));
+                    //         } else {
+                    //             *(dstp_u + x) = src_u;
+                    //             *(dstp_v + x) = src_v;
+                    //         }
+                    //     }
+                    //     srcp_u += stride_src_u;
+                    //     srcp_v += stride_src_v;
+                    //     dstp_u += stride_dst_u;
+                    //     dstp_v += stride_dst_v;
+                    // }
                 }
             }
         }
@@ -843,20 +851,20 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
                     for (int x = 0; x < chroma_width; x++) {
                         const float src_u = *(srcp_u + x);
                         const float src_v = *(srcp_v + x);
-                        float u = src_u;
-                        float v = src_v;
                         
-                        float currHue = fast_atan2f(v, u) * 180.0f / M_PI;
+                        float currHue = fast_atan2f(src_v, src_u) * 180.0f / M_PI;
                         if (currHue < 0) currHue += 360.0f;
                         
-                        float currSat = fast_sqrtf(u * u + v * v) * 119.0f;
+                        float currSat = fast_sqrtf(src_u * src_u + src_v * src_v) * 255.0f;
+
                         if (isHueInRange(currHue, d->startHue, d->endHue)) {
                             float sat_factor = calculateSaturationFactor(currSat, d->minSat, d->maxSat, d->sat, d->interp);
-                            float new_u = u * hue_cos * sat_factor + v * hue_sin * sat_factor;
-                            float new_v = v * hue_cos * sat_factor - u * hue_sin * sat_factor;
                             
-                            *(dstp_u + x) = CLAMP(new_u, -0.5, 0.5);
-                            *(dstp_v + x) = CLAMP(new_v, -0.5, 0.5);
+                            float new_u = src_u * hue_cos * sat_factor + src_v * hue_sin * sat_factor;
+                            float new_v = src_v * hue_cos * sat_factor - src_u * hue_sin * sat_factor;
+                            // printf("x=%d, y=%d, src_u=%f, src_v=%f, currHue=%f, currSat=%f, sat_factor=%f\n", x, y, src_u, src_v, currHue, currSat, sat_factor);
+                            *(dstp_u + x) = CLAMP(new_u, -0.5f, 0.5f);
+                            *(dstp_v + x) = CLAMP(new_v, -0.5f, 0.5f);
                         } else {
                             *(dstp_u + x) = src_u;
                             *(dstp_v + x) = src_v;
