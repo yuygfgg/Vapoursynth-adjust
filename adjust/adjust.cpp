@@ -643,8 +643,8 @@ static const VSFrame* VS_CC tweakGetFrame(int n, int activationReason, void* ins
         planeSrc[2] = src;
     }
 
-    if (do_range_check && fi->sampleType == stInteger) {
-        std::cerr << "Tweak: min/maxSat, start/endHue is currently only supported on float input." << std::endl;
+    if (do_range_check && (fi->sampleType != stFloat || fi->subSamplingH != 0 || fi->subSamplingW != 0 || fi->bitsPerSample != 32)) {
+        std::cerr << "Tweak: min/maxSat, start/endHue is currently only supported on YUV444PS input." << std::endl;
         exit(1);
     }
 
